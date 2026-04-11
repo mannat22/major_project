@@ -7,7 +7,7 @@ import sqlite3
 import matplotlib.pyplot as plt
 
 
-model = joblib.load("health_risk_model.pkl")
+model = joblib.load("model.pkl")
 scaler = joblib.load("scaler.pkl")
 
 conn = sqlite3.connect("health_predictions.db", check_same_thread=False)
