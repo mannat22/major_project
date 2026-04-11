@@ -64,16 +64,38 @@ with col1:
     height = st.slider("Height (cm)", 140, 210, 170)
     sleep = st.slider("Sleep Hours", 3, 10, 7)
 
-    exercise = st.selectbox("Exercise Level", [0,1,2])
+    exercise = st.selectbox("Do you exercise?", ["No", "Yes"])
+    exercise = 1 if exercise == "Yes" else 0
     sugar = st.slider("Sugar Intake", 0, 10, 5)
 
 with col2:
     st.subheader("⚕️ Lifestyle Info")
 
-    smoking = st.selectbox("Smoking", [0,1])
-    alcohol = st.selectbox("Alcohol", [0,1])
-    married = st.selectbox("Married", [0,1])
-    profession = st.selectbox("Profession", list(range(10)))
+    smoking = st.selectbox("Do you smoke?", ["No", "Yes"])
+    smoking = 1 if smoking == "Yes" else 0
+
+    alcohol = st.selectbox("Do you consume alcohol?", ["No", "Yes"])
+    alcohol = 1 if alcohol == "Yes" else 0
+
+    married = st.selectbox("Are you married?", ["No", "Yes"])
+    married = 1 if married == "Yes" else 0
+    profession_list = [
+    "Student",
+    "Software Engineer",
+    "Doctor",
+    "Teacher",
+    "Business",
+    "Engineer (Non-IT)",
+    "Government Job",
+    "Self-Employed",
+    "Unemployed",
+    "Other"
+]
+
+selected_profession = st.selectbox("Profession", profession_list)
+
+# Convert to numeric (IMPORTANT for model)
+profession = profession_list.index(selected_profession)
 
 # BMI
 bmi = weight / ((height/100)**2)
