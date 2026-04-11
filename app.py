@@ -5,7 +5,7 @@ import numpy as np
 import joblib
 import sqlite3
 import matplotlib.pyplot as plt
-import seaborn as sns
+
 
 model = joblib.load("health_risk_model.pkl")
 scaler = joblib.load("scaler.pkl")
