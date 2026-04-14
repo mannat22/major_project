@@ -9,95 +9,51 @@ import joblib
 import matplotlib.pyplot as plt
 import os
 
-# ================= AI SUGGESTIONS ================= #
-def get_health_advice(prediction, age, bmi, smoking, alcohol, sleep, exercise, sugar):
-    advice, diet, lifestyle, remedies = [], [], [], []
+# ================= UI CONFIG ================= #
+st.set_page_config(page_title="Smart Health AI", page_icon="🏥", layout="wide")
 
-    if prediction == 1:
-        advice.append("⚠️ High health risk detected. Improve lifestyle immediately.")
-    else:
-        advice.append("✅ Low health risk. Maintain your healthy routine.")
+# ================= CUSTOM CSS ================= #
+st.markdown("""
+<style>
+body {
+    background: linear-gradient(135deg, #1f4037, #99f2c8);
+}
+.block-container {
+    padding: 2rem 3rem;
+}
+.card {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    color: white;
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.2);
+    margin-bottom: 20px;
+}
+.stButton>button {
+    background: linear-gradient(90deg, #00c6ff, #0072ff);
+    color: white;
+    border-radius: 10px;
+    height: 3em;
+    width: 100%;
+    font-size: 18px;
+}
+section[data-testid="stSidebar"] {
+    background: #1f2937;
+    color: white;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    if bmi >= 25:
-        lifestyle.append("⚖️ Overweight detected. Focus on weight reduction.")
-        diet.append("🥗 Eat salads, fruits, and low-calorie foods.")
-        diet.append("🚫 Avoid fried and junk food.")
-    elif bmi < 18.5:
-        lifestyle.append("⚠️ Underweight. Increase nutritious food intake.")
-        diet.append("🥛 Include milk, nuts, and proteins.")
-
-    if sleep < 6:
-        lifestyle.append("😴 Poor sleep. Aim for 7–8 hours daily.")
-
-    if sugar > 7:
-        diet.append("🍬 Reduce sugar intake immediately.")
-
-    if smoking:
-        lifestyle.append("🚭 Quit smoking gradually.")
-
-    if alcohol:
-        lifestyle.append("🍺 Limit alcohol consumption.")
-
-    if exercise == 0:
-        lifestyle.append("🏃 Start 20–30 minutes walking daily.")
-    else:
-        lifestyle.append("💪 Good physical activity level.")
-
-    if age > 50:
-        lifestyle.append("🩺 Regular health checkups recommended.")
-
-    remedies.append("🌿 Drink warm lemon water in morning.")
-    remedies.append("🌿 Take turmeric milk for immunity.")
-    remedies.append("🌿 Drink 2–3L water daily.")
-
-    return advice, diet, lifestyle, remedies
-
-# ================= PDF FUNCTION ================= #
-def generate_pdf(age, weight, height, sleep, sugar, bmi, prediction, confidence,
-                 advice, diet, lifestyle, remedies):
-
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-
-    content = []
-
-    content.append(Paragraph("Smart Health Risk Report", styles['Title']))
-    content.append(Spacer(1, 10))
-
-    content.append(Paragraph(f"Age: {age}", styles['Normal']))
-    content.append(Paragraph(f"Weight: {weight} kg", styles['Normal']))
-    content.append(Paragraph(f"Height: {height} cm", styles['Normal']))
-    content.append(Paragraph(f"Sleep: {sleep} hours", styles['Normal']))
-    content.append(Paragraph(f"Sugar Intake: {sugar}", styles['Normal']))
-    content.append(Paragraph(f"BMI: {bmi:.2f}", styles['Normal']))
-
-    result = "High Risk" if prediction == 1 else "Low Risk"
-
-    content.append(Spacer(1, 10))
-    content.append(Paragraph(f"Prediction: {result}", styles['Heading2']))
-    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles['Normal']))
-
-    content.append(Spacer(1, 10))
-    content.append(Paragraph("Summary", styles['Heading3']))
-    for a in advice:
-        content.append(Paragraph(a, styles['Normal']))
-
-    content.append(Paragraph("Diet Recommendations", styles['Heading3']))
-    for d in diet:
-        content.append(Paragraph(d, styles['Normal']))
-
-    content.append(Paragraph("Lifestyle Improvements", styles['Heading3']))
-    for l in lifestyle:
-        content.append(Paragraph(l, styles['Normal']))
-
-    content.append(Paragraph("Natural Remedies", styles['Heading3']))
-    for r in remedies:
-        content.append(Paragraph(r, styles['Normal']))
-
-    doc.build(content)
-    buffer.seek(0)
-    return buffer
+# ================= HEADER ================= #
+st.markdown("""
+<h1 style='text-align:center; color:white; font-size:50px;'>
+🏥 Smart Health Risk AI
+</h1>
+<p style='text-align:center; color:#ddd; font-size:18px;'>
+AI-powered health prediction with personalized insights
+</p>
+""", unsafe_allow_html=True)
 
 # ================= LOAD MODEL ================= #
 if not os.path.exists("model.pkl") or not os.path.exists("scaler.pkl"):
@@ -107,11 +63,6 @@ if not os.path.exists("model.pkl") or not os.path.exists("scaler.pkl"):
 model = joblib.load('model.pkl')
 scaler = joblib.load('scaler.pkl')
 
-# ================= UI CONFIG ================= #
-st.set_page_config(page_title="Smart Health AI", page_icon="🏥", layout="wide")
-
-st.markdown("<h1 style='text-align:center; color:#2E86C1;'>🏥 Smart Health Risk Dashboard</h1>", unsafe_allow_html=True)
-
 # ================= SIDEBAR ================= #
 st.sidebar.title("🧾 Patient Input")
 
@@ -120,19 +71,11 @@ weight = st.sidebar.slider("Weight (kg)", 40, 150, 70)
 height = st.sidebar.slider("Height (cm)", 140, 210, 170)
 sleep = st.sidebar.slider("Sleep Hours", 3, 10, 7)
 
-exercise = st.sidebar.selectbox("Exercise?", ["No", "Yes"])
-exercise = 1 if exercise == "Yes" else 0
-
+exercise = 1 if st.sidebar.selectbox("Exercise?", ["No", "Yes"]) == "Yes" else 0
 sugar = st.sidebar.slider("Sugar Intake", 0, 10, 5)
-
-smoking = st.sidebar.selectbox("Smoking?", ["No", "Yes"])
-smoking = 1 if smoking == "Yes" else 0
-
-alcohol = st.sidebar.selectbox("Alcohol?", ["No", "Yes"])
-alcohol = 1 if alcohol == "Yes" else 0
-
-married = st.sidebar.selectbox("Married?", ["No", "Yes"])
-married = 1 if married == "Yes" else 0
+smoking = 1 if st.sidebar.selectbox("Smoking?", ["No", "Yes"]) == "Yes" else 0
+alcohol = 1 if st.sidebar.selectbox("Alcohol?", ["No", "Yes"]) == "Yes" else 0
+married = 1 if st.sidebar.selectbox("Married?", ["No", "Yes"]) == "Yes" else 0
 
 profession_list = [
     "Student","Software Engineer","Doctor","Teacher","Business",
@@ -143,103 +86,150 @@ profession = profession_list.index(st.sidebar.selectbox("Profession", profession
 # BMI
 bmi = weight / ((height/100)**2)
 
-# ================= BUTTON ================= #
+# ================= HELPER FUNCTIONS ================= #
+def get_health_advice(prediction, age, bmi, smoking, alcohol, sleep, exercise, sugar):
+    advice, diet, lifestyle, remedies = [], [], [], []
+
+    if prediction == 1:
+        advice.append("⚠️ High health risk detected. Improve lifestyle immediately.")
+    else:
+        advice.append("✅ Low health risk. Maintain your healthy routine.")
+
+    if bmi >= 25:
+        lifestyle.append("⚖️ Overweight detected.")
+        diet.append("🥗 Eat healthy low-calorie food.")
+    elif bmi < 18.5:
+        lifestyle.append("⚠️ Underweight.")
+        diet.append("🥛 Increase protein intake.")
+
+    if sleep < 6:
+        lifestyle.append("😴 Improve sleep schedule.")
+
+    if sugar > 7:
+        diet.append("🍬 Reduce sugar intake.")
+
+    if smoking:
+        lifestyle.append("🚭 Quit smoking.")
+
+    if alcohol:
+        lifestyle.append("🍺 Reduce alcohol.")
+
+    if exercise == 0:
+        lifestyle.append("🏃 Start daily exercise.")
+
+    remedies += ["🌿 Lemon water", "🌿 Turmeric milk", "🌿 Stay hydrated"]
+
+    return advice, diet, lifestyle, remedies
+
+
+def generate_pdf(age, weight, height, sleep, sugar, bmi, prediction, confidence,
+                 advice, diet, lifestyle, remedies):
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
+
+    content = []
+
+    content.append(Paragraph("Smart Health Report", styles['Title']))
+    content.append(Spacer(1, 10))
+
+    content.append(Paragraph(f"Age: {age}", styles['Normal']))
+    content.append(Paragraph(f"BMI: {bmi:.2f}", styles['Normal']))
+    content.append(Paragraph(f"Prediction: {'High Risk' if prediction==1 else 'Low Risk'}", styles['Normal']))
+    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles['Normal']))
+
+    for section in [advice, diet, lifestyle, remedies]:
+        content.append(Spacer(1, 10))
+        for item in section:
+            content.append(Paragraph(item, styles['Normal']))
+
+    doc.build(content)
+    buffer.seek(0)
+    return buffer
+
+# ================= MAIN ================= #
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.subheader("📊 Patient Overview")
+st.write(f"Age: {age} | BMI: {bmi:.2f} | Sleep: {sleep} hrs")
+st.markdown('</div>', unsafe_allow_html=True)
+
 analyze = st.button("🔍 Analyze Health Risk")
 
 if analyze:
 
     input_data = pd.DataFrame([{
-        "age": age,
-        "weight": weight,
-        "height": height,
-        "exercise": exercise,
-        "sleep": sleep,
-        "sugar_intake": sugar,
-        "smoking": smoking,
-        "alcohol": alcohol,
-        "married": married,
-        "profession": profession,
-        "bmi": bmi
+        "age": age, "weight": weight, "height": height,
+        "exercise": exercise, "sleep": sleep,
+        "sugar_intake": sugar, "smoking": smoking,
+        "alcohol": alcohol, "married": married,
+        "profession": profession, "bmi": bmi
     }])
 
     input_scaled = scaler.transform(input_data)
 
-    prediction = model.predict(input_scaled)
-    prob = model.predict_proba(input_scaled)
-    confidence = float(np.max(prob))
+    prediction = model.predict(input_scaled)[0]
+    confidence = float(np.max(model.predict_proba(input_scaled)))
 
-    # ================= RESULT CARD ================= #
+    # RESULT CARD
     st.markdown(f"""
-    <div style="background-color:#2E86C1;padding:20px;border-radius:10px;color:white;text-align:center">
-    <h2>Prediction: {"HIGH RISK" if prediction[0]==1 else "LOW RISK"}</h2>
-    <h4>Confidence: {confidence*100:.2f}%</h4>
+    <div class="card">
+        <h2 style='text-align:center;'>{"⚠️ HIGH RISK" if prediction==1 else "✅ LOW RISK"}</h2>
+        <h3 style='text-align:center;'>Confidence: {confidence*100:.2f}%</h3>
     </div>
     """, unsafe_allow_html=True)
 
-    # ================= GRAPH ================= #
+    # GRAPH
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("📊 Confidence Analysis")
+
     fig, ax = plt.subplots()
-    ax.bar(["Confidence"], [confidence * 100])
-    ax.set_ylabel("Percentage")
+    ax.bar(["Confidence"], [confidence*100])
     st.pyplot(fig)
     plt.close(fig)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # ================= AI SUGGESTIONS ================= #
+    # SUGGESTIONS
+    advice, diet, lifestyle, remedies = get_health_advice(
+        prediction, age, bmi, smoking, alcohol, sleep, exercise, sugar
+    )
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("🩺 Health Suggestions")
 
-    advice, diet, lifestyle, remedies = get_health_advice(
-        prediction[0], age, bmi, smoking, alcohol, sleep, exercise, sugar
-    )
+    for section, title in zip([advice, diet, lifestyle, remedies],
+                             ["Summary", "Diet", "Lifestyle", "Remedies"]):
+        st.write(f"### {title}")
+        for item in section:
+            st.write(item)
 
-    st.write("### 📌 Summary")
-    for a in advice: st.write(a)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.write("### 🥗 Diet")
-    for d in diet: st.write(d)
-
-    st.write("### 🏃 Lifestyle")
-    for l in lifestyle: st.write(l)
-
-    st.write("### 🌿 Remedies")
-    for r in remedies: st.write(r)
-
-    # ================= SAVE TO CSV ================= #
-    record = {
-        "age": age,
-        "weight": weight,
-        "height": height,
-        "sleep": sleep,
-        "exercise": exercise,
-        "sugar": sugar,
-        "smoking": smoking,
-        "alcohol": alcohol,
-        "married": married,
-        "profession": profession,
-        "bmi": float(bmi),
-        "prediction": int(prediction[0]),
-        "confidence": confidence
-    }
-
-    new_data = pd.DataFrame([record])
+    # SAVE CSV
+    record = pd.DataFrame([{
+        "age": age, "bmi": bmi, "prediction": prediction, "confidence": confidence
+    }])
 
     if os.path.exists("data.csv"):
-        new_data.to_csv("data.csv", mode='a', header=False, index=False)
+        record.to_csv("data.csv", mode='a', header=False, index=False)
     else:
-        new_data.to_csv("data.csv", index=False)
+        record.to_csv("data.csv", index=False)
 
-    # ================= PDF ================= #
-    pdf = generate_pdf(
-        age, weight, height, sleep, sugar, bmi,
-        prediction[0], confidence,
-        advice, diet, lifestyle, remedies
-    )
+    # PDF
+    pdf = generate_pdf(age, weight, height, sleep, sugar, bmi,
+                       prediction, confidence,
+                       advice, diet, lifestyle, remedies)
 
-    st.download_button("📥 Download Report", pdf, "health_report.pdf", "application/pdf")
+    st.download_button("📥 Download Report", pdf, "health_report.pdf")
 
-# ================= SHOW SAVED DATA ================= #
-st.markdown("## 📂 Previous Records")
+# HISTORY
+st.markdown('<div class="card">', unsafe_allow_html=True)
+st.subheader("📂 Previous Records")
 
 if os.path.exists("data.csv"):
     df = pd.read_csv("data.csv")
     st.dataframe(df.tail(5))
 else:
-    st.write("No records found.")
+    st.write("No records yet.")
+
+st.markdown('</div>', unsafe_allow_html=True)
