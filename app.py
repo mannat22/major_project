@@ -88,22 +88,13 @@ profession = profession_list.index(st.sidebar.selectbox("Profession", profession
 # ================= BMI ================= #
 bmi = weight / ((height / 100) ** 2)
 
-# ================= FEATURE ORDER (CRITICAL) ================= #
+# ================= FEATURE ORDER ================= #
 FEATURES = [
-    "age",
-    "weight",
-    "height",
-    "exercise",
-    "sleep",
-    "sugar_intake",
-    "smoking",
-    "alcohol",
-    "married",
-    "profession",
-    "bmi"
+    "age","weight","height","exercise","sleep",
+    "sugar_intake","smoking","alcohol","married","profession","bmi"
 ]
 
-# ================= AI LOGIC ================= #
+# ================= AI CORE ================= #
 def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     score = 100
 
@@ -130,21 +121,21 @@ def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     return score, level
 
 
-def recommendations(bmi, sleep, sugar, smoking, alcohol):
+def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
     tips = []
 
     if bmi > 25:
-        tips.append("🥗 Reduce oily food & start walking 30 min daily")
+        tips.append("🥗 Reduce oily & processed food")
     if bmi < 18:
         tips.append("🍗 Increase protein intake")
     if sleep < 6:
-        tips.append("😴 Improve sleep cycle (7–8 hrs)")
+        tips.append("😴 Sleep 7–8 hours daily")
     if sugar > 7:
-        tips.append("🚫 Reduce sugar & soft drinks")
+        tips.append("🚫 Avoid sugar & soft drinks")
     if smoking:
-        tips.append("🚭 Quit smoking gradually")
+        tips.append("🚭 Reduce smoking gradually")
     if alcohol:
-        tips.append("🍺 Reduce alcohol intake")
+        tips.append("🍺 Limit alcohol")
 
     if not tips:
         tips.append("✅ Maintain healthy lifestyle")
@@ -152,25 +143,69 @@ def recommendations(bmi, sleep, sugar, smoking, alcohol):
     return tips
 
 
+def health_improvement_plan(bmi, sleep, sugar, smoking, alcohol):
+
+    plan = []
+
+    # Diet & weight
+    if bmi > 25:
+        plan.append("🥗 Eat more vegetables, fiber, fruits")
+        plan.append("🚶 Start daily walking 30 minutes")
+    elif bmi < 18:
+        plan.append("🍗 Increase protein-rich foods like eggs, milk, nuts")
+
+    # Sleep
+    if sleep < 6:
+        plan.append("😴 Fix sleep schedule (7–8 hours daily)")
+
+    # Sugar
+    if sugar > 7:
+        plan.append("🚫 Reduce sweets, cold drinks, packaged foods")
+
+    # Habits
+    if smoking:
+        plan.append("🚭 Reduce smoking gradually (step-by-step)")
+    if alcohol:
+        plan.append("🍺 Reduce alcohol consumption")
+
+    # Natural remedies (VERY IMPORTANT)
+    plan.append("🌿 Drink warm lemon water every morning")
+    plan.append("🌿 Drink turmeric milk before sleep")
+    plan.append("🌿 Drink 2–3L water daily")
+    plan.append("🌿 Do light exercise or yoga daily")
+    plan.append("🌿 Green tea helps metabolism")
+
+    return plan
+
+
 # ================= PDF ================= #
-def generate_pdf(name, score, level, confidence, recs):
+def generate_pdf(name, score, level, confidence, recs, plan):
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
 
-    content = [
-        Paragraph("Smart Health AI Report", styles["Title"]),
-        Spacer(1, 10),
-        Paragraph(f"Name: {name}", styles["Normal"]),
-        Paragraph(f"Health Score: {score}/100", styles["Normal"]),
-        Paragraph(f"Risk Level: {level}", styles["Normal"]),
-        Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]),
-        Spacer(1, 10),
-        Paragraph("Recommendations:", styles["Heading2"]),
-    ]
+    content = []
+
+    content.append(Paragraph("Smart Health AI Report", styles["Title"]))
+    content.append(Spacer(1, 10))
+
+    content.append(Paragraph(f"Name: {name}", styles["Normal"]))
+    content.append(Paragraph(f"Health Score: {score}/100", styles["Normal"]))
+    content.append(Paragraph(f"Risk Level: {level}", styles["Normal"]))
+    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]))
+
+    content.append(Spacer(1, 10))
+    content.append(Paragraph("AI Recommendations:", styles["Heading2"]))
 
     for r in recs:
         content.append(Paragraph("• " + r, styles["Normal"]))
+
+    content.append(Spacer(1, 10))
+    content.append(Paragraph("Health Improvement Plan:", styles["Heading2"]))
+
+    for p in plan:
+        content.append(Paragraph("• " + p, styles["Normal"]))
 
     doc.build(content)
     buffer.seek(0)
@@ -184,26 +219,17 @@ st.write(f"👤 Name: {name}")
 st.write(f"Age: {age} | BMI: {bmi:.2f}")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ================= PREDICTION ================= #
+# ================= ANALYZE ================= #
 if st.button("🔍 Analyze Health Risk"):
 
     if name.strip() == "":
         st.warning("Please enter name!")
         st.stop()
 
-    # ✅ FIXED INPUT (NO ERROR GUARANTEE)
+    # SAFE INPUT (NO ERROR)
     input_array = np.array([[
-        age,
-        weight,
-        height,
-        exercise,
-        sleep,
-        sugar,
-        smoking,
-        alcohol,
-        married,
-        profession,
-        bmi
+        age, weight, height, exercise, sleep,
+        sugar, smoking, alcohol, married, profession, bmi
     ]])
 
     input_scaled = scaler.transform(input_array)
@@ -212,7 +238,9 @@ if st.button("🔍 Analyze Health Risk"):
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
     score, level = health_score(prediction, bmi, sleep, sugar, smoking, alcohol)
-    recs = recommendations(bmi, sleep, sugar, smoking, alcohol)
+
+    recs = ai_recommendations(bmi, sleep, sugar, smoking, alcohol)
+    plan = health_improvement_plan(bmi, sleep, sugar, smoking, alcohol)
 
     # ================= RESULT ================= #
     st.markdown(f"""
@@ -230,8 +258,13 @@ if st.button("🔍 Analyze Health Risk"):
     for r in recs:
         st.write("✔️", r)
 
-    # ================= PDF DOWNLOAD ================= #
-    pdf = generate_pdf(name, score, level, confidence, recs)
+    # ================= PLAN ================= #
+    st.markdown("### 🌿 Health Improvement Plan")
+    for p in plan:
+        st.write("🌿", p)
+
+    # ================= PDF ================= #
+    pdf = generate_pdf(name, score, level, confidence, recs, plan)
 
     st.download_button(
         "📥 Download Health Report",
