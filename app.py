@@ -228,6 +228,3 @@ if st.button("🔍 Analyze Health Risk"):
 
     st.download_button("📥 Download Report", pdf, "report.pdf")
 
-# ================= DEBUG ================= #
-st.write("Model exists:", os.path.exists("model.pkl"))
-st.write("Scaler exists:", os.path.exists("scaler.pkl"))
