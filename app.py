@@ -15,7 +15,6 @@ st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide"
 # ================= UI ================= #
 st.markdown("""
 <style>
-
 .stApp {
     background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #1c92d2);
     background-size: 400% 400%;
@@ -40,7 +39,6 @@ st.markdown("""
 
 h1, h2, h3 {
     color: white;
-    font-family: Arial;
 }
 
 .stButton>button {
@@ -59,7 +57,6 @@ h1, h2, h3 {
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0f172a, #1e293b);
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -71,8 +68,22 @@ try:
     model = joblib.load("model.pkl")
     scaler = joblib.load("scaler.pkl")
 except:
-    st.error("Model not found!")
+    st.error("❌ Model not found!")
     st.stop()
+
+# ================= FIXED FEATURE ORDER ================= #
+FEATURES = [
+    "age",
+    "weight",
+    "height",
+    "exercise",
+    "sleep",
+    "sugar_intake",
+    "smoking",
+    "alcohol",
+    "profession",
+    "bmi"
+]
 
 # ================= MONGODB ================= #
 MONGO_URI = "mongodb+srv://amin:admin123@cluster0.27iplaf.mongodb.net/?appName=Cluster0"
@@ -99,11 +110,11 @@ alcohol = 1 if st.sidebar.selectbox("Alcohol?", ["No", "Yes"]) == "Yes" else 0
 profession_list = ["Student","Engineer","Doctor","Teacher","Business","Other"]
 profession = profession_list.index(st.sidebar.selectbox("Profession", profession_list))
 
+# BMI
 bmi = weight / ((height/100)**2)
 
 # ================= AI FUNCTIONS ================= #
-
-def get_health_score(pred, bmi, sleep, sugar, smoking, alcohol):
+def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     score = 100
 
     if pred == 1:
@@ -129,43 +140,25 @@ def get_health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     return score, level
 
 
-def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
+def recommendations(bmi, sleep, sugar, smoking, alcohol):
     tips = []
 
     if bmi > 25:
-        tips.append("🥗 Reduce weight with healthy diet + exercise")
-    if bmi < 18:
-        tips.append("🍗 Increase nutritious food intake")
-
+        tips.append("🥗 Reduce weight with diet & exercise")
     if sleep < 6:
-        tips.append("😴 Improve sleep (7–8 hours needed)")
+        tips.append("😴 Improve sleep (7–8 hrs needed)")
     if sugar > 7:
         tips.append("🚫 Reduce sugar intake")
     if smoking:
-        tips.append("🚭 Quit smoking gradually")
+        tips.append("🚭 Quit smoking")
     if alcohol:
-        tips.append("🍺 Limit alcohol consumption")
+        tips.append("🍺 Limit alcohol")
 
     if not tips:
         tips.append("✅ Maintain healthy lifestyle")
 
     return tips
 
-
-def generate_pdf(name, score, level):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-
-    content = [
-        Paragraph(f"Name: {name}", styles['Normal']),
-        Paragraph(f"Health Score: {score}/100", styles['Normal']),
-        Paragraph(f"Risk Level: {level}", styles['Normal']),
-    ]
-
-    doc.build(content)
-    buffer.seek(0)
-    return buffer
 
 # ================= MAIN ================= #
 st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -181,29 +174,28 @@ if st.button("🔍 Analyze Health Risk"):
         st.warning("Enter name first!")
         st.stop()
 
-    input_data = pd.DataFrame([{
-        "age": age,
-        "weight": weight,
-        "height": height,
-        "exercise": exercise,
-        "sleep": sleep,
-        "sugar_intake": sugar,
-        "smoking": smoking,
-        "alcohol": alcohol,
-        "profession": profession,
-        "bmi": bmi
-    }])
+    # FIXED INPUT (NO FEATURE ERROR)
+    input_data = pd.DataFrame([[
+        age,
+        weight,
+        height,
+        exercise,
+        sleep,
+        sugar,
+        smoking,
+        alcohol,
+        profession,
+        bmi
+    ]], columns=FEATURES)
 
     input_scaled = scaler.transform(input_data)
 
     prediction = int(model.predict(input_scaled)[0])
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
-    # ================= AI ================= #
-    score, level = get_health_score(
-        prediction, bmi, sleep, sugar, smoking, alcohol
-    )
+    score, level = health_score(prediction, bmi, sleep, sugar, smoking, alcohol)
 
+    # ================= RESULT ================= #
     st.markdown(f"""
     <div class="card">
         <h2>Health Score: {score}/100</h2>
@@ -216,8 +208,8 @@ if st.button("🔍 Analyze Health Risk"):
 
     # ================= RECOMMENDATIONS ================= #
     st.markdown("### 🧠 AI Recommendations")
-    for tip in ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
-        st.write("✔️", tip)
+    for r in recommendations(bmi, sleep, sugar, smoking, alcohol):
+        st.write("✔️", r)
 
     # ================= SAVE TO MONGODB ================= #
     record = {
@@ -232,8 +224,4 @@ if st.button("🔍 Analyze Health Risk"):
     }
 
     collection.insert_one(record)
-    st.success("📦 Data saved successfully!")
-
-    # ================= PDF ================= #
-    pdf = generate_pdf(name, score, level)
-    st.download_button("📥 Download Report", pdf, "report.pdf")
+    st.success("📦 Data saved to MongoDB successfully!")
