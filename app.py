@@ -1,18 +1,19 @@
 # ================= IMPORTS ================= #
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from pymongo import MongoClient
+from datetime import datetime
+from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 import streamlit as st
 import numpy as np
 import pandas as pd
 import joblib
-import matplotlib.pyplot as plt
 import os
 
 # ================= PAGE CONFIG ================= #
 st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide")
 
-# ================= UI CSS ================= #
+# ================= UI ================= #
 st.markdown("""
 <style>
 body {
@@ -51,13 +52,20 @@ st.markdown("""
 
 # ================= LOAD MODEL ================= #
 try:
-    model = joblib.load('model.pkl')
-    scaler = joblib.load('scaler.pkl')
+    model = joblib.load("model.pkl")
+    scaler = joblib.load("scaler.pkl")
 except:
-    st.error("Model not found!")
+    st.error("❌ Model not found!")
     st.stop()
 
-# ================= SIDEBAR ================= #
+# ================= MONGODB SETUP ================= #
+MONGO_URI = "mongodb+srv://amin:admin123@cluster0.27iplaf.mongodb.net/?appName=Cluster0"   # 🔴 REPLACE THIS
+
+client = MongoClient(MONGO_URI)
+db = client["health_ai"]
+collection = db["predictions"]
+
+# ================= SIDEBAR INPUT ================= #
 st.sidebar.title("🧾 Patient Input")
 
 name = st.sidebar.text_input("👤 Enter Name")
@@ -76,18 +84,20 @@ married = 1 if st.sidebar.selectbox("Married?", ["No", "Yes"]) == "Yes" else 0
 profession_list = ["Student","Engineer","Doctor","Teacher","Business","Other"]
 profession = profession_list.index(st.sidebar.selectbox("Profession", profession_list))
 
+# BMI
 bmi = weight / ((height/100)**2)
 
-# ================= FUNCTIONS ================= #
+# ================= PDF ================= #
 def generate_pdf(name, prediction, confidence):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
 
-    content = []
-    content.append(Paragraph(f"Name: {name}", styles['Normal']))
-    content.append(Paragraph(f"Prediction: {'High Risk' if prediction else 'Low Risk'}", styles['Normal']))
-    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles['Normal']))
+    content = [
+        Paragraph(f"Name: {name}", styles['Normal']),
+        Paragraph(f"Prediction: {'High Risk' if prediction else 'Low Risk'}", styles['Normal']),
+        Paragraph(f"Confidence: {confidence*100:.2f}%", styles['Normal']),
+    ]
 
     doc.build(content)
     buffer.seek(0)
@@ -100,66 +110,72 @@ st.write(f"👤 Name: {name}")
 st.write(f"Age: {age} | BMI: {bmi:.2f}")
 st.markdown('</div>', unsafe_allow_html=True)
 
+# ================= ANALYZE ================= #
 if st.button("🔍 Analyze Health Risk"):
 
     if name.strip() == "":
-        st.warning("Please enter your name!")
+        st.warning("⚠️ Please enter your name!")
         st.stop()
 
     input_data = pd.DataFrame([{
-        "age": age, "weight": weight, "height": height,
-        "exercise": exercise, "sleep": sleep,
-        "sugar_intake": sugar, "smoking": smoking,
-        "alcohol": alcohol, "married": married,
-        "profession": profession, "bmi": bmi
+        "age": age,
+        "weight": weight,
+        "height": height,
+        "exercise": exercise,
+        "sleep": sleep,
+        "sugar_intake": sugar,
+        "smoking": smoking,
+        "alcohol": alcohol,
+        "married": married,
+        "profession": profession,
+        "bmi": bmi
     }])
 
     input_scaled = scaler.transform(input_data)
 
-    prediction = model.predict(input_scaled)[0]
+    prediction = int(model.predict(input_scaled)[0])
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
     # ================= RESULT ================= #
     st.markdown(f"""
     <div class="card">
-        <h2>{'⚠️ HIGH RISK' if prediction else '✅ LOW RISK'}</h2>
+        <h2>{'⚠️ HIGH RISK' if prediction==1 else '✅ LOW RISK'}</h2>
         <h3>Confidence: {confidence*100:.2f}%</h3>
     </div>
     """, unsafe_allow_html=True)
 
     st.progress(int(confidence * 100))
 
-    # ================= SAVE DATA ================= #
-    file_path = "data.csv"
+    # ================= SAVE TO MONGODB ================= #
+    record = {
+        "name": name,
+        "age": age,
+        "weight": weight,
+        "height": height,
+        "bmi": float(bmi),
+        "sleep": sleep,
+        "exercise": exercise,
+        "sugar": sugar,
+        "smoking": smoking,
+        "alcohol": alcohol,
+        "married": married,
+        "profession": profession,
+        "prediction": prediction,
+        "confidence": confidence,
+        "timestamp": datetime.now()
+    }
 
-    if os.path.exists(file_path):
-        df = pd.read_csv(file_path)
-        serial = len(df) + 1
-    else:
-        serial = 1
-
-    new_record = pd.DataFrame([{
-        "S.No": serial,
-        "Name": name,
-        "Age": age,
-        "BMI": bmi,
-        "Prediction": prediction,
-        "Confidence": confidence
-    }])
-
-    if os.path.exists(file_path):
-        new_record.to_csv(file_path, mode='a', header=False, index=False)
-    else:
-        new_record.to_csv(file_path, index=False)
+    try:
+        collection.insert_one(record)
+        st.success("📦 Data stored in MongoDB successfully!")
+    except Exception as e:
+        st.error(f"Database Error: {e}")
 
     # ================= PDF ================= #
     pdf = generate_pdf(name, prediction, confidence)
 
     st.download_button("📥 Download Report", pdf, "report.pdf")
 
-
-
-import os
-
+# ================= DEBUG ================= #
 st.write("Model exists:", os.path.exists("model.pkl"))
 st.write("Scaler exists:", os.path.exists("scaler.pkl"))
