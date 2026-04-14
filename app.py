@@ -1,17 +1,15 @@
 # ================= IMPORTS ================= #
 import streamlit as st
 import numpy as np
-import pandas as pd
 import joblib
 from io import BytesIO
-from datetime import datetime
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
 # ================= PAGE CONFIG ================= #
 st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide")
 
-# ================= UI STYLE ================= #
+# ================= UI ================= #
 st.markdown("""
 <style>
 .stApp {
@@ -32,7 +30,6 @@ st.markdown("""
     border-radius: 20px;
     padding: 25px;
     margin: 15px 0px;
-    box-shadow: 0px 8px 30px rgba(0,0,0,0.3);
     color: white;
 }
 
@@ -45,7 +42,6 @@ h1, h2, h3 {
     color: white;
     border-radius: 12px;
     height: 3.2em;
-    font-size: 16px;
     font-weight: bold;
 }
 
@@ -70,12 +66,6 @@ except:
     st.error("❌ Model not found!")
     st.stop()
 
-# ================= FEATURES ================= #
-FEATURES = [
-    "age","weight","height","exercise","sleep",
-    "sugar_intake","smoking","alcohol","profession","bmi"
-]
-
 # ================= SIDEBAR INPUT ================= #
 st.sidebar.title("🧾 Patient Input")
 
@@ -90,14 +80,30 @@ exercise = 1 if st.sidebar.selectbox("Exercise?", ["No", "Yes"]) == "Yes" else 0
 sugar = st.sidebar.slider("Sugar Intake", 0, 10, 5)
 smoking = 1 if st.sidebar.selectbox("Smoking?", ["No", "Yes"]) == "Yes" else 0
 alcohol = 1 if st.sidebar.selectbox("Alcohol?", ["No", "Yes"]) == "Yes" else 0
+married = 1 if st.sidebar.selectbox("Married?", ["No", "Yes"]) == "Yes" else 0
 
 profession_list = ["Student","Engineer","Doctor","Teacher","Business","Other"]
 profession = profession_list.index(st.sidebar.selectbox("Profession", profession_list))
 
-bmi = weight / ((height/100)**2)
+# ================= BMI ================= #
+bmi = weight / ((height / 100) ** 2)
 
-# ================= AI FUNCTIONS ================= #
+# ================= FEATURE ORDER (CRITICAL) ================= #
+FEATURES = [
+    "age",
+    "weight",
+    "height",
+    "exercise",
+    "sleep",
+    "sugar_intake",
+    "smoking",
+    "alcohol",
+    "married",
+    "profession",
+    "bmi"
+]
 
+# ================= AI LOGIC ================= #
 def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     score = 100
 
@@ -124,21 +130,21 @@ def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     return score, level
 
 
-def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
+def recommendations(bmi, sleep, sugar, smoking, alcohol):
     tips = []
 
     if bmi > 25:
-        tips.append("🥗 Reduce oily food, start daily walking (30 min)")
+        tips.append("🥗 Reduce oily food & start walking 30 min daily")
     if bmi < 18:
-        tips.append("🍗 Increase protein intake (eggs, milk, nuts)")
+        tips.append("🍗 Increase protein intake")
     if sleep < 6:
-        tips.append("😴 Fix sleep schedule (7–8 hours daily)")
+        tips.append("😴 Improve sleep cycle (7–8 hrs)")
     if sugar > 7:
-        tips.append("🚫 Reduce sugar and soft drinks")
+        tips.append("🚫 Reduce sugar & soft drinks")
     if smoking:
-        tips.append("🚭 Quit smoking step-by-step")
+        tips.append("🚭 Quit smoking gradually")
     if alcohol:
-        tips.append("🍺 Reduce alcohol consumption")
+        tips.append("🍺 Reduce alcohol intake")
 
     if not tips:
         tips.append("✅ Maintain healthy lifestyle")
@@ -146,26 +152,24 @@ def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
     return tips
 
 
-# ================= PDF FUNCTION ================= #
-def generate_pdf(name, score, level, confidence, recommendations):
+# ================= PDF ================= #
+def generate_pdf(name, score, level, confidence, recs):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
 
-    content = []
+    content = [
+        Paragraph("Smart Health AI Report", styles["Title"]),
+        Spacer(1, 10),
+        Paragraph(f"Name: {name}", styles["Normal"]),
+        Paragraph(f"Health Score: {score}/100", styles["Normal"]),
+        Paragraph(f"Risk Level: {level}", styles["Normal"]),
+        Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]),
+        Spacer(1, 10),
+        Paragraph("Recommendations:", styles["Heading2"]),
+    ]
 
-    content.append(Paragraph("Smart Health AI Report", styles["Title"]))
-    content.append(Spacer(1, 10))
-
-    content.append(Paragraph(f"Name: {name}", styles["Normal"]))
-    content.append(Paragraph(f"Health Score: {score}/100", styles["Normal"]))
-    content.append(Paragraph(f"Risk Level: {level}", styles["Normal"]))
-    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]))
-
-    content.append(Spacer(1, 10))
-    content.append(Paragraph("AI Recommendations:", styles["Heading2"]))
-
-    for r in recommendations:
+    for r in recs:
         content.append(Paragraph("• " + r, styles["Normal"]))
 
     doc.build(content)
@@ -173,7 +177,7 @@ def generate_pdf(name, score, level, confidence, recommendations):
     return buffer
 
 
-# ================= MAIN UI ================= #
+# ================= MAIN ================= #
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.subheader("📊 Patient Overview")
 st.write(f"👤 Name: {name}")
@@ -184,8 +188,10 @@ st.markdown('</div>', unsafe_allow_html=True)
 if st.button("🔍 Analyze Health Risk"):
 
     if name.strip() == "":
-        st.warning("Please enter your name!")
+        st.warning("Please enter name!")
         st.stop()
+
+    # ✅ FIXED INPUT (NO ERROR GUARANTEE)
     input_array = np.array([[
         age,
         weight,
@@ -195,18 +201,18 @@ if st.button("🔍 Analyze Health Risk"):
         sugar,
         smoking,
         alcohol,
+        married,
         profession,
         bmi
     ]])
-    input_scaled = scaler.transform(input_array)
+
     input_scaled = scaler.transform(input_array)
 
     prediction = int(model.predict(input_scaled)[0])
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
     score, level = health_score(prediction, bmi, sleep, sugar, smoking, alcohol)
-
-    recommendations = ai_recommendations(bmi, sleep, sugar, smoking, alcohol)
+    recs = recommendations(bmi, sleep, sugar, smoking, alcohol)
 
     # ================= RESULT ================= #
     st.markdown(f"""
@@ -220,15 +226,15 @@ if st.button("🔍 Analyze Health Risk"):
     st.progress(score)
 
     # ================= RECOMMENDATIONS ================= #
-    st.markdown("### 🧠 AI Lifestyle Recommendations")
-    for r in recommendations:
+    st.markdown("### 🧠 AI Recommendations")
+    for r in recs:
         st.write("✔️", r)
 
     # ================= PDF DOWNLOAD ================= #
-    pdf = generate_pdf(name, score, level, confidence, recommendations)
+    pdf = generate_pdf(name, score, level, confidence, recs)
 
     st.download_button(
-        "📥 Download Health Report (PDF)",
+        "📥 Download Health Report",
         pdf,
         file_name="health_report.pdf",
         mime="application/pdf"
