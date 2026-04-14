@@ -186,20 +186,20 @@ if st.button("🔍 Analyze Health Risk"):
     if name.strip() == "":
         st.warning("Please enter your name!")
         st.stop()
-input_array = np.array([[
-    age,
-    weight,
-    height,
-    exercise,
-    sleep,
-    sugar,
-    smoking,
-    alcohol,
-    profession,
-    bmi
-]])
-
-input_scaled = scaler.transform(input_array)
+    input_array = np.array([[
+        age,
+        weight,
+        height,
+        exercise,
+        sleep,
+        sugar,
+        smoking,
+        alcohol,
+        profession,
+        bmi
+    ]])
+    input_scaled = scaler.transform(input_array)
+    input_scaled = scaler.transform(input_array)
 
     prediction = int(model.predict(input_scaled)[0])
     confidence = float(np.max(model.predict_proba(input_scaled)))
