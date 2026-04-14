@@ -3,13 +3,15 @@ import streamlit as st
 import numpy as np
 import joblib
 from io import BytesIO
+from datetime import datetime
+from pymongo import MongoClient
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
 # ================= PAGE CONFIG ================= #
 st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide")
 
-# ================= UI ================= #
+# ================= UI DESIGN ================= #
 st.markdown("""
 <style>
 .stApp {
@@ -66,6 +68,13 @@ except:
     st.error("❌ Model not found!")
     st.stop()
 
+# ================= MONGODB SETUP ================= #
+MONGO_URI = "YOUR_MONGODB_ATLAS_URI"  # 🔴 REPLACE THIS
+
+client = MongoClient(MONGO_URI)
+db = client["health_ai"]
+collection = db["patient_records"]
+
 # ================= SIDEBAR INPUT ================= #
 st.sidebar.title("🧾 Patient Input")
 
@@ -88,13 +97,7 @@ profession = profession_list.index(st.sidebar.selectbox("Profession", profession
 # ================= BMI ================= #
 bmi = weight / ((height / 100) ** 2)
 
-# ================= FEATURE ORDER ================= #
-FEATURES = [
-    "age","weight","height","exercise","sleep",
-    "sugar_intake","smoking","alcohol","married","profession","bmi"
-]
-
-# ================= AI CORE ================= #
+# ================= HEALTH SCORE ================= #
 def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     score = 100
 
@@ -120,63 +123,56 @@ def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
 
     return score, level
 
-
-def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
+# ================= RECOMMENDATIONS ================= #
+def recommendations(bmi, sleep, sugar, smoking, alcohol):
     tips = []
 
     if bmi > 25:
-        tips.append("🥗 Reduce oily & processed food")
+        tips.append("🥗 Reduce oily & junk food")
     if bmi < 18:
         tips.append("🍗 Increase protein intake")
     if sleep < 6:
         tips.append("😴 Sleep 7–8 hours daily")
     if sugar > 7:
-        tips.append("🚫 Avoid sugar & soft drinks")
+        tips.append("🚫 Reduce sugar intake")
     if smoking:
-        tips.append("🚭 Reduce smoking gradually")
+        tips.append("🚭 Quit smoking gradually")
     if alcohol:
-        tips.append("🍺 Limit alcohol")
+        tips.append("🍺 Reduce alcohol intake")
 
     if not tips:
         tips.append("✅ Maintain healthy lifestyle")
 
     return tips
 
-
-def health_improvement_plan(bmi, sleep, sugar, smoking, alcohol):
-
+# ================= HEALTH PLAN ================= #
+def health_plan(bmi, sleep, sugar, smoking, alcohol):
     plan = []
 
-    # Diet & weight
     if bmi > 25:
-        plan.append("🥗 Eat more vegetables, fiber, fruits")
-        plan.append("🚶 Start daily walking 30 minutes")
+        plan.append("🥗 Eat more vegetables, fruits, fiber")
+        plan.append("🚶 Walk 30 min daily")
     elif bmi < 18:
-        plan.append("🍗 Increase protein-rich foods like eggs, milk, nuts")
+        plan.append("🍗 Increase protein-rich foods")
 
-    # Sleep
     if sleep < 6:
-        plan.append("😴 Fix sleep schedule (7–8 hours daily)")
+        plan.append("😴 Fix sleep schedule (7–8 hrs)")
 
-    # Sugar
     if sugar > 7:
-        plan.append("🚫 Reduce sweets, cold drinks, packaged foods")
+        plan.append("🚫 Avoid sweets & cold drinks")
 
-    # Habits
     if smoking:
-        plan.append("🚭 Reduce smoking gradually (step-by-step)")
+        plan.append("🚭 Reduce smoking step by step")
     if alcohol:
-        plan.append("🍺 Reduce alcohol consumption")
+        plan.append("🍺 Reduce alcohol intake")
 
-    # Natural remedies (VERY IMPORTANT)
-    plan.append("🌿 Drink warm lemon water every morning")
-    plan.append("🌿 Drink turmeric milk before sleep")
+    # Natural remedies
+    plan.append("🌿 Warm lemon water every morning")
+    plan.append("🌿 Turmeric milk before sleep")
     plan.append("🌿 Drink 2–3L water daily")
-    plan.append("🌿 Do light exercise or yoga daily")
-    plan.append("🌿 Green tea helps metabolism")
+    plan.append("🌿 Daily light exercise or yoga")
 
     return plan
-
 
 # ================= PDF ================= #
 def generate_pdf(name, score, level, confidence, recs, plan):
@@ -185,18 +181,16 @@ def generate_pdf(name, score, level, confidence, recs, plan):
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
 
-    content = []
-
-    content.append(Paragraph("Smart Health AI Report", styles["Title"]))
-    content.append(Spacer(1, 10))
-
-    content.append(Paragraph(f"Name: {name}", styles["Normal"]))
-    content.append(Paragraph(f"Health Score: {score}/100", styles["Normal"]))
-    content.append(Paragraph(f"Risk Level: {level}", styles["Normal"]))
-    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]))
-
-    content.append(Spacer(1, 10))
-    content.append(Paragraph("AI Recommendations:", styles["Heading2"]))
+    content = [
+        Paragraph("Smart Health AI Report", styles["Title"]),
+        Spacer(1, 10),
+        Paragraph(f"Name: {name}", styles["Normal"]),
+        Paragraph(f"Health Score: {score}/100", styles["Normal"]),
+        Paragraph(f"Risk Level: {level}", styles["Normal"]),
+        Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]),
+        Spacer(1, 10),
+        Paragraph("Recommendations:", styles["Heading2"]),
+    ]
 
     for r in recs:
         content.append(Paragraph("• " + r, styles["Normal"]))
@@ -211,8 +205,7 @@ def generate_pdf(name, score, level, confidence, recs, plan):
     buffer.seek(0)
     return buffer
 
-
-# ================= MAIN ================= #
+# ================= MAIN UI ================= #
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.subheader("📊 Patient Overview")
 st.write(f"👤 Name: {name}")
@@ -226,7 +219,7 @@ if st.button("🔍 Analyze Health Risk"):
         st.warning("Please enter name!")
         st.stop()
 
-    # SAFE INPUT (NO ERROR)
+    # INPUT ARRAY (FIXED)
     input_array = np.array([[
         age, weight, height, exercise, sleep,
         sugar, smoking, alcohol, married, profession, bmi
@@ -238,9 +231,8 @@ if st.button("🔍 Analyze Health Risk"):
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
     score, level = health_score(prediction, bmi, sleep, sugar, smoking, alcohol)
-
-    recs = ai_recommendations(bmi, sleep, sugar, smoking, alcohol)
-    plan = health_improvement_plan(bmi, sleep, sugar, smoking, alcohol)
+    recs = recommendations(bmi, sleep, sugar, smoking, alcohol)
+    plan = health_plan(bmi, sleep, sugar, smoking, alcohol)
 
     # ================= RESULT ================= #
     st.markdown(f"""
@@ -253,21 +245,47 @@ if st.button("🔍 Analyze Health Risk"):
 
     st.progress(score)
 
-    # ================= RECOMMENDATIONS ================= #
+    # ================= SHOW OUTPUT ================= #
     st.markdown("### 🧠 AI Recommendations")
     for r in recs:
         st.write("✔️", r)
 
-    # ================= PLAN ================= #
     st.markdown("### 🌿 Health Improvement Plan")
     for p in plan:
         st.write("🌿", p)
+
+    # ================= SAVE TO MONGODB ================= #
+    record = {
+        "name": name,
+        "age": age,
+        "weight": weight,
+        "height": height,
+        "bmi": float(bmi),
+        "sleep": sleep,
+        "exercise": exercise,
+        "sugar": sugar,
+        "smoking": smoking,
+        "alcohol": alcohol,
+        "married": married,
+        "profession": profession,
+        "prediction": prediction,
+        "confidence": confidence,
+        "health_score": score,
+        "risk_level": level,
+        "timestamp": datetime.now()
+    }
+
+    try:
+        collection.insert_one(record)
+        st.success("📦 Data saved to database!")
+    except Exception as e:
+        st.error(f"DB Error: {e}")
 
     # ================= PDF ================= #
     pdf = generate_pdf(name, score, level, confidence, recs, plan)
 
     st.download_button(
-        "📥 Download Health Report",
+        "📥 Download Report",
         pdf,
         file_name="health_report.pdf",
         mime="application/pdf"
