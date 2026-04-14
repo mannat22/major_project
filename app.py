@@ -69,7 +69,7 @@ except:
     st.stop()
 
 # ================= MONGODB SETUP ================= #
-MONGO_URI = "YOUR_MONGODB_ATLAS_URI"  # 🔴 REPLACE THIS
+MONGO_URI = "mongodb+srv://amin:admin123@cluster0.27iplaf.mongodb.net/?appName=Cluster0"  # 🔴 REPLACE THIS
 
 client = MongoClient(MONGO_URI)
 db = client["health_ai"]
