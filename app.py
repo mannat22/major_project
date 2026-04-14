@@ -1,18 +1,17 @@
 # ================= IMPORTS ================= #
-from pymongo import MongoClient
-from datetime import datetime
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from io import BytesIO
 import streamlit as st
 import numpy as np
 import pandas as pd
 import joblib
+from io import BytesIO
+from datetime import datetime
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 # ================= PAGE CONFIG ================= #
 st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide")
 
-# ================= UI ================= #
+# ================= UI STYLE ================= #
 st.markdown("""
 <style>
 .stApp {
@@ -34,7 +33,7 @@ st.markdown("""
     padding: 25px;
     margin: 15px 0px;
     box-shadow: 0px 8px 30px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
 }
 
 h1, h2, h3 {
@@ -71,28 +70,13 @@ except:
     st.error("❌ Model not found!")
     st.stop()
 
-# ================= FIXED FEATURE ORDER ================= #
+# ================= FEATURES ================= #
 FEATURES = [
-    "age",
-    "weight",
-    "height",
-    "exercise",
-    "sleep",
-    "sugar_intake",
-    "smoking",
-    "alcohol",
-    "profession",
-    "bmi"
+    "age","weight","height","exercise","sleep",
+    "sugar_intake","smoking","alcohol","profession","bmi"
 ]
 
-# ================= MONGODB ================= #
-MONGO_URI = "mongodb+srv://amin:admin123@cluster0.27iplaf.mongodb.net/?appName=Cluster0"
-
-client = MongoClient(MONGO_URI)
-db = client["health_ai"]
-collection = db["predictions"]
-
-# ================= SIDEBAR ================= #
+# ================= SIDEBAR INPUT ================= #
 st.sidebar.title("🧾 Patient Input")
 
 name = st.sidebar.text_input("👤 Name")
@@ -110,10 +94,10 @@ alcohol = 1 if st.sidebar.selectbox("Alcohol?", ["No", "Yes"]) == "Yes" else 0
 profession_list = ["Student","Engineer","Doctor","Teacher","Business","Other"]
 profession = profession_list.index(st.sidebar.selectbox("Profession", profession_list))
 
-# BMI
 bmi = weight / ((height/100)**2)
 
 # ================= AI FUNCTIONS ================= #
+
 def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     score = 100
 
@@ -140,19 +124,21 @@ def health_score(pred, bmi, sleep, sugar, smoking, alcohol):
     return score, level
 
 
-def recommendations(bmi, sleep, sugar, smoking, alcohol):
+def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
     tips = []
 
     if bmi > 25:
-        tips.append("🥗 Reduce weight with diet & exercise")
+        tips.append("🥗 Reduce oily food, start daily walking (30 min)")
+    if bmi < 18:
+        tips.append("🍗 Increase protein intake (eggs, milk, nuts)")
     if sleep < 6:
-        tips.append("😴 Improve sleep (7–8 hrs needed)")
+        tips.append("😴 Fix sleep schedule (7–8 hours daily)")
     if sugar > 7:
-        tips.append("🚫 Reduce sugar intake")
+        tips.append("🚫 Reduce sugar and soft drinks")
     if smoking:
-        tips.append("🚭 Quit smoking")
+        tips.append("🚭 Quit smoking step-by-step")
     if alcohol:
-        tips.append("🍺 Limit alcohol")
+        tips.append("🍺 Reduce alcohol consumption")
 
     if not tips:
         tips.append("✅ Maintain healthy lifestyle")
@@ -160,32 +146,50 @@ def recommendations(bmi, sleep, sugar, smoking, alcohol):
     return tips
 
 
-# ================= MAIN ================= #
+# ================= PDF FUNCTION ================= #
+def generate_pdf(name, score, level, confidence, recommendations):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
+
+    content = []
+
+    content.append(Paragraph("Smart Health AI Report", styles["Title"]))
+    content.append(Spacer(1, 10))
+
+    content.append(Paragraph(f"Name: {name}", styles["Normal"]))
+    content.append(Paragraph(f"Health Score: {score}/100", styles["Normal"]))
+    content.append(Paragraph(f"Risk Level: {level}", styles["Normal"]))
+    content.append(Paragraph(f"Confidence: {confidence*100:.2f}%", styles["Normal"]))
+
+    content.append(Spacer(1, 10))
+    content.append(Paragraph("AI Recommendations:", styles["Heading2"]))
+
+    for r in recommendations:
+        content.append(Paragraph("• " + r, styles["Normal"]))
+
+    doc.build(content)
+    buffer.seek(0)
+    return buffer
+
+
+# ================= MAIN UI ================= #
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.subheader("📊 Patient Overview")
-st.write(f"Name: {name}")
+st.write(f"👤 Name: {name}")
 st.write(f"Age: {age} | BMI: {bmi:.2f}")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ================= ANALYZE ================= #
+# ================= PREDICTION ================= #
 if st.button("🔍 Analyze Health Risk"):
 
     if name.strip() == "":
-        st.warning("Enter name first!")
+        st.warning("Please enter your name!")
         st.stop()
 
-    # FIXED INPUT (NO FEATURE ERROR)
     input_data = pd.DataFrame([[
-        age,
-        weight,
-        height,
-        exercise,
-        sleep,
-        sugar,
-        smoking,
-        alcohol,
-        profession,
-        bmi
+        age, weight, height, exercise, sleep,
+        sugar, smoking, alcohol, profession, bmi
     ]], columns=FEATURES)
 
     input_scaled = scaler.transform(input_data)
@@ -194,6 +198,8 @@ if st.button("🔍 Analyze Health Risk"):
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
     score, level = health_score(prediction, bmi, sleep, sugar, smoking, alcohol)
+
+    recommendations = ai_recommendations(bmi, sleep, sugar, smoking, alcohol)
 
     # ================= RESULT ================= #
     st.markdown(f"""
@@ -207,21 +213,16 @@ if st.button("🔍 Analyze Health Risk"):
     st.progress(score)
 
     # ================= RECOMMENDATIONS ================= #
-    st.markdown("### 🧠 AI Recommendations")
-    for r in recommendations(bmi, sleep, sugar, smoking, alcohol):
+    st.markdown("### 🧠 AI Lifestyle Recommendations")
+    for r in recommendations:
         st.write("✔️", r)
 
-    # ================= SAVE TO MONGODB ================= #
-    record = {
-        "name": name,
-        "age": age,
-        "bmi": float(bmi),
-        "prediction": prediction,
-        "health_score": score,
-        "risk_level": level,
-        "confidence": confidence,
-        "timestamp": datetime.now()
-    }
+    # ================= PDF DOWNLOAD ================= #
+    pdf = generate_pdf(name, score, level, confidence, recommendations)
 
-    collection.insert_one(record)
-    st.success("📦 Data saved to MongoDB successfully!")
+    st.download_button(
+        "📥 Download Health Report (PDF)",
+        pdf,
+        file_name="health_report.pdf",
+        mime="application/pdf"
+    )
