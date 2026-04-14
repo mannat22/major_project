@@ -16,32 +16,84 @@ st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide"
 # ================= UI ================= #
 st.markdown("""
 <style>
-body {
-    background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #00c6ff);
+
+/* 🌈 Animated Background */
+.stApp {
+    background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #1c92d2);
     background-size: 400% 400%;
-    animation: gradientBG 10s ease infinite;
+    animation: gradientBG 12s ease infinite;
 }
+
+/* background animation */
 @keyframes gradientBG {
     0% {background-position: 0% 50%;}
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
+
+/* 🧊 Glass Card */
 .card {
-    background: rgba(255,255,255,0.08);
-    padding: 25px;
+    background: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(20px);
     border-radius: 20px;
-    backdrop-filter: blur(15px);
-    color: white;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    margin-bottom: 20px;
+    padding: 25px;
+    margin: 15px 0px;
+    box-shadow: 0px 8px 30px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: 0.3s ease-in-out;
 }
+
+/* hover effect */
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 12px 40px rgba(0,0,0,0.5);
+}
+
+/* 🧠 Title Styling */
+h1, h2, h3 {
+    color: white;
+    font-family: 'Arial';
+}
+
+/* ✨ Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f172a, #1e293b);
+}
+
+/* 🎯 Buttons */
 .stButton>button {
     background: linear-gradient(90deg, #00c6ff, #0072ff);
     color: white;
     border-radius: 12px;
-    height: 3em;
-    font-size: 18px;
+    height: 3.2em;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    transition: 0.3s ease-in-out;
+    box-shadow: 0px 5px 15px rgba(0,198,255,0.3);
 }
+
+/* button hover */
+.stButton>button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(90deg, #0072ff, #00c6ff);
+}
+
+/* 📊 Progress Bar */
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, #00c6ff, #0072ff);
+}
+
+/* ✍️ Inputs */
+input, selectbox {
+    border-radius: 10px !important;
+}
+
+/* 🔥 Hide Streamlit default styling */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
 </style>
 """, unsafe_allow_html=True)
 
