@@ -156,3 +156,10 @@ if st.button("🔍 Analyze Health Risk"):
     pdf = generate_pdf(name, prediction, confidence)
 
     st.download_button("📥 Download Report", pdf, "report.pdf")
+
+
+
+import os
+
+st.write("Model exists:", os.path.exists("model.pkl"))
+st.write("Scaler exists:", os.path.exists("scaler.pkl"))
