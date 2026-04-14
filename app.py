@@ -8,15 +8,6 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 import os
-from pymongo import MongoClient
-from datetime import datetime
-
-# ================= MONGODB SETUP ================= #
-MONGO_URI = "YOUR_MONGODB_ATLAS_URI"  # 🔥 Replace this
-
-client = MongoClient(MONGO_URI)
-db = client["health_ai"]
-collection = db["predictions"]
 
 # ================= AI SUGGESTIONS ================= #
 def get_health_advice(prediction, age, bmi, smoking, alcohol, sleep, exercise, sugar):
@@ -152,8 +143,10 @@ profession = profession_list.index(st.sidebar.selectbox("Profession", profession
 # BMI
 bmi = weight / ((height/100)**2)
 
-# ================= PREDICTION ================= #
-if st.button("🔍 Analyze Health Risk"):
+# ================= BUTTON ================= #
+analyze = st.button("🔍 Analyze Health Risk")
+
+if analyze:
 
     input_data = pd.DataFrame([{
         "age": age,
@@ -188,26 +181,7 @@ if st.button("🔍 Analyze Health Risk"):
     ax.bar(["Confidence"], [confidence * 100])
     ax.set_ylabel("Percentage")
     st.pyplot(fig)
-
-    # ================= STORE IN DATABASE ================= #
-    record = {
-        "age": age,
-        "weight": weight,
-        "height": height,
-        "sleep": sleep,
-        "exercise": exercise,
-        "sugar": sugar,
-        "smoking": smoking,
-        "alcohol": alcohol,
-        "married": married,
-        "profession": profession,
-        "bmi": float(bmi),
-        "prediction": int(prediction[0]),
-        "confidence": confidence,
-        "timestamp": datetime.now()
-    }
-
-    collection.insert_one(record)
+    plt.close(fig)
 
     # ================= AI SUGGESTIONS ================= #
     st.subheader("🩺 Health Suggestions")
@@ -228,6 +202,30 @@ if st.button("🔍 Analyze Health Risk"):
     st.write("### 🌿 Remedies")
     for r in remedies: st.write(r)
 
+    # ================= SAVE TO CSV ================= #
+    record = {
+        "age": age,
+        "weight": weight,
+        "height": height,
+        "sleep": sleep,
+        "exercise": exercise,
+        "sugar": sugar,
+        "smoking": smoking,
+        "alcohol": alcohol,
+        "married": married,
+        "profession": profession,
+        "bmi": float(bmi),
+        "prediction": int(prediction[0]),
+        "confidence": confidence
+    }
+
+    new_data = pd.DataFrame([record])
+
+    if os.path.exists("data.csv"):
+        new_data.to_csv("data.csv", mode='a', header=False, index=False)
+    else:
+        new_data.to_csv("data.csv", index=False)
+
     # ================= PDF ================= #
     pdf = generate_pdf(
         age, weight, height, sleep, sugar, bmi,
@@ -237,13 +235,11 @@ if st.button("🔍 Analyze Health Risk"):
 
     st.download_button("📥 Download Report", pdf, "health_report.pdf", "application/pdf")
 
-# ================= SHOW DATABASE RECORDS ================= #
+# ================= SHOW SAVED DATA ================= #
 st.markdown("## 📂 Previous Records")
 
-data = list(collection.find().sort("timestamp", -1).limit(5))
-
-if data:
-    df = pd.DataFrame(data)
-    st.dataframe(df)
+if os.path.exists("data.csv"):
+    df = pd.read_csv("data.csv")
+    st.dataframe(df.tail(5))
 else:
     st.write("No records found.")
