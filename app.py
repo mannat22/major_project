@@ -8,7 +8,6 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import joblib
-import os
 
 # ================= PAGE CONFIG ================= #
 st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide")
@@ -17,50 +16,33 @@ st.set_page_config(page_title="Smart Health AI", page_icon="🧠", layout="wide"
 st.markdown("""
 <style>
 
-/* 🌈 Animated Background */
 .stApp {
     background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #1c92d2);
     background-size: 400% 400%;
     animation: gradientBG 12s ease infinite;
 }
 
-/* background animation */
 @keyframes gradientBG {
     0% {background-position: 0% 50%;}
     50% {background-position: 100% 50%;}
     100% {background-position: 0% 50%;}
 }
 
-/* 🧊 Glass Card */
 .card {
-    background: rgba(255, 255, 255, 0.10);
+    background: rgba(255,255,255,0.10);
     backdrop-filter: blur(20px);
     border-radius: 20px;
     padding: 25px;
     margin: 15px 0px;
     box-shadow: 0px 8px 30px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.15);
-    transition: 0.3s ease-in-out;
 }
 
-/* hover effect */
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0px 12px 40px rgba(0,0,0,0.5);
-}
-
-/* 🧠 Title Styling */
 h1, h2, h3 {
     color: white;
-    font-family: 'Arial';
+    font-family: Arial;
 }
 
-/* ✨ Sidebar */
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a, #1e293b);
-}
-
-/* 🎯 Buttons */
 .stButton>button {
     background: linear-gradient(90deg, #00c6ff, #0072ff);
     color: white;
@@ -68,59 +50,41 @@ section[data-testid="stSidebar"] {
     height: 3.2em;
     font-size: 16px;
     font-weight: bold;
-    border: none;
-    transition: 0.3s ease-in-out;
-    box-shadow: 0px 5px 15px rgba(0,198,255,0.3);
 }
 
-/* button hover */
-.stButton>button:hover {
-    transform: scale(1.05);
-    background: linear-gradient(90deg, #0072ff, #00c6ff);
-}
-
-/* 📊 Progress Bar */
 .stProgress > div > div > div > div {
     background: linear-gradient(90deg, #00c6ff, #0072ff);
 }
 
-/* ✍️ Inputs */
-input, selectbox {
-    border-radius: 10px !important;
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f172a, #1e293b);
 }
-
-/* 🔥 Hide Streamlit default styling */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
 
 </style>
 """, unsafe_allow_html=True)
 
 # ================= HEADER ================= #
-st.markdown("""
-<h1 style='text-align:center; color:white;'>🧠 Smart Health AI</h1>
-""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>🧠 Smart Health AI System</h1>", unsafe_allow_html=True)
 
 # ================= LOAD MODEL ================= #
 try:
     model = joblib.load("model.pkl")
     scaler = joblib.load("scaler.pkl")
 except:
-    st.error("❌ Model not found!")
+    st.error("Model not found!")
     st.stop()
 
-# ================= MONGODB SETUP ================= #
-MONGO_URI = "mongodb+srv://amin:admin123@cluster0.27iplaf.mongodb.net/?appName=Cluster0"   # 🔴 REPLACE THIS
+# ================= MONGODB ================= #
+MONGO_URI = "mongodb+srv://amin:admin123@cluster0.27iplaf.mongodb.net/?appName=Cluster0"
 
 client = MongoClient(MONGO_URI)
 db = client["health_ai"]
 collection = db["predictions"]
 
-# ================= SIDEBAR INPUT ================= #
+# ================= SIDEBAR ================= #
 st.sidebar.title("🧾 Patient Input")
 
-name = st.sidebar.text_input("👤 Enter Name")
+name = st.sidebar.text_input("👤 Name")
 
 age = st.sidebar.slider("Age", 18, 100, 30)
 weight = st.sidebar.slider("Weight (kg)", 40, 150, 70)
@@ -131,24 +95,72 @@ exercise = 1 if st.sidebar.selectbox("Exercise?", ["No", "Yes"]) == "Yes" else 0
 sugar = st.sidebar.slider("Sugar Intake", 0, 10, 5)
 smoking = 1 if st.sidebar.selectbox("Smoking?", ["No", "Yes"]) == "Yes" else 0
 alcohol = 1 if st.sidebar.selectbox("Alcohol?", ["No", "Yes"]) == "Yes" else 0
-married = 1 if st.sidebar.selectbox("Married?", ["No", "Yes"]) == "Yes" else 0
 
 profession_list = ["Student","Engineer","Doctor","Teacher","Business","Other"]
 profession = profession_list.index(st.sidebar.selectbox("Profession", profession_list))
 
-# BMI
 bmi = weight / ((height/100)**2)
 
-# ================= PDF ================= #
-def generate_pdf(name, prediction, confidence):
+# ================= AI FUNCTIONS ================= #
+
+def get_health_score(pred, bmi, sleep, sugar, smoking, alcohol):
+    score = 100
+
+    if pred == 1:
+        score -= 35
+    if bmi > 25:
+        score -= 15
+    if sleep < 6:
+        score -= 10
+    if sugar > 7:
+        score -= 10
+    if smoking:
+        score -= 15
+    if alcohol:
+        score -= 10
+
+    if score >= 75:
+        level = "🟢 LOW RISK"
+    elif score >= 50:
+        level = "🟡 MODERATE RISK"
+    else:
+        level = "🔴 HIGH RISK"
+
+    return score, level
+
+
+def ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
+    tips = []
+
+    if bmi > 25:
+        tips.append("🥗 Reduce weight with healthy diet + exercise")
+    if bmi < 18:
+        tips.append("🍗 Increase nutritious food intake")
+
+    if sleep < 6:
+        tips.append("😴 Improve sleep (7–8 hours needed)")
+    if sugar > 7:
+        tips.append("🚫 Reduce sugar intake")
+    if smoking:
+        tips.append("🚭 Quit smoking gradually")
+    if alcohol:
+        tips.append("🍺 Limit alcohol consumption")
+
+    if not tips:
+        tips.append("✅ Maintain healthy lifestyle")
+
+    return tips
+
+
+def generate_pdf(name, score, level):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
 
     content = [
         Paragraph(f"Name: {name}", styles['Normal']),
-        Paragraph(f"Prediction: {'High Risk' if prediction else 'Low Risk'}", styles['Normal']),
-        Paragraph(f"Confidence: {confidence*100:.2f}%", styles['Normal']),
+        Paragraph(f"Health Score: {score}/100", styles['Normal']),
+        Paragraph(f"Risk Level: {level}", styles['Normal']),
     ]
 
     doc.build(content)
@@ -158,7 +170,7 @@ def generate_pdf(name, prediction, confidence):
 # ================= MAIN ================= #
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.subheader("📊 Patient Overview")
-st.write(f"👤 Name: {name}")
+st.write(f"Name: {name}")
 st.write(f"Age: {age} | BMI: {bmi:.2f}")
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -166,7 +178,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 if st.button("🔍 Analyze Health Risk"):
 
     if name.strip() == "":
-        st.warning("⚠️ Please enter your name!")
+        st.warning("Enter name first!")
         st.stop()
 
     input_data = pd.DataFrame([{
@@ -178,7 +190,6 @@ if st.button("🔍 Analyze Health Risk"):
         "sugar_intake": sugar,
         "smoking": smoking,
         "alcohol": alcohol,
-        "married": married,
         "profession": profession,
         "bmi": bmi
     }])
@@ -188,43 +199,41 @@ if st.button("🔍 Analyze Health Risk"):
     prediction = int(model.predict(input_scaled)[0])
     confidence = float(np.max(model.predict_proba(input_scaled)))
 
-    # ================= RESULT ================= #
+    # ================= AI ================= #
+    score, level = get_health_score(
+        prediction, bmi, sleep, sugar, smoking, alcohol
+    )
+
     st.markdown(f"""
     <div class="card">
-        <h2>{'⚠️ HIGH RISK' if prediction==1 else '✅ LOW RISK'}</h2>
+        <h2>Health Score: {score}/100</h2>
+        <h2>{level}</h2>
         <h3>Confidence: {confidence*100:.2f}%</h3>
     </div>
     """, unsafe_allow_html=True)
 
-    st.progress(int(confidence * 100))
+    st.progress(score)
+
+    # ================= RECOMMENDATIONS ================= #
+    st.markdown("### 🧠 AI Recommendations")
+    for tip in ai_recommendations(bmi, sleep, sugar, smoking, alcohol):
+        st.write("✔️", tip)
 
     # ================= SAVE TO MONGODB ================= #
     record = {
         "name": name,
         "age": age,
-        "weight": weight,
-        "height": height,
         "bmi": float(bmi),
-        "sleep": sleep,
-        "exercise": exercise,
-        "sugar": sugar,
-        "smoking": smoking,
-        "alcohol": alcohol,
-        "married": married,
-        "profession": profession,
         "prediction": prediction,
+        "health_score": score,
+        "risk_level": level,
         "confidence": confidence,
         "timestamp": datetime.now()
     }
 
-    try:
-        collection.insert_one(record)
-        st.success("📦 Data stored in MongoDB successfully!")
-    except Exception as e:
-        st.error(f"Database Error: {e}")
+    collection.insert_one(record)
+    st.success("📦 Data saved successfully!")
 
     # ================= PDF ================= #
-    pdf = generate_pdf(name, prediction, confidence)
-
+    pdf = generate_pdf(name, score, level)
     st.download_button("📥 Download Report", pdf, "report.pdf")
-
