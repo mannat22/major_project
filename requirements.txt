@@ -1,9 +1,8 @@
-
 streamlit
-scikit-learn
 pandas
 numpy
 joblib
-shap
 matplotlib
 reportlab
+pymongo
+scikit-learn
